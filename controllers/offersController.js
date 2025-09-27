@@ -103,8 +103,8 @@ const getOffer = asyncHandler(async (req, res) => {
     const { offerId } = req.params;
 
     const ip = process.env.NODE_ENV === "production"
-      ? req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress || "8.8.8.8"
-      : "8.8.8.8";
+      ? req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress || "102.91.71.93"
+      : "102.91.71.93";
 
     const geo = geoip.lookup(ip);
     if (!geo) {
