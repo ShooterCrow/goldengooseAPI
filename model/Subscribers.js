@@ -20,7 +20,6 @@ const subscriberSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      unique: true,
       match: [
         /^\S+@\S+\.\S+$/,
         "Please provide a valid email address",
@@ -57,7 +56,6 @@ const subscriberSchema = new mongoose.Schema(
 );
 
 // Add index for better query performance
-subscriberSchema.index({ email: 1 });
 subscriberSchema.index({ ipAddress: 1 });
 
 const Subscriber = mongoose.model("Subscriber", subscriberSchema);

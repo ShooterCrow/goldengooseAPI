@@ -27,11 +27,11 @@ const createSubscriber = asyncHandler(async (req, res) => {
     source = "website",
   } = req.body;
 
-  // Check if email already exists
-  const existingSubscriber = await Subscriber.findOne({ email });
-  if (existingSubscriber) {
-    throw new DuplicateSubscriberError("Email is already subscribed");
-  }
+//   // Check if email already exists
+//   const existingSubscriber = await Subscriber.findOne({ email });
+//   if (existingSubscriber) {
+//     throw new DuplicateSubscriberError("Email is already subscribed");
+//   }
 
   try {
     const subscriber = await Subscriber.create({
