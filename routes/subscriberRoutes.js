@@ -38,7 +38,7 @@ router.put("/:id", updateSubscriber);
 
 // @route   DELETE /api/subscribers/:id
 // @desc    Delete subscriber
-router.delete("/:id", deleteSubscriber);
+router.delete("/", deleteSubscriber);
 
 // @route   DELETE /api/subscribers
 // @desc    Delete all subscribers (Admin only)

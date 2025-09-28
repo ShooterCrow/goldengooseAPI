@@ -225,23 +225,24 @@ const updateSubscriber = asyncHandler(async (req, res) => {
 
 // Delete subscriber
 const deleteSubscriber = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  console.log(req.body)
+  const { ipAddress } = req.body;
 
-  const subscriber = await Subscriber.findById(id);
+  const subscriber = await Subscriber.findOne({ipAddress});
 
   if (!subscriber) {
     throw new SubscriberNotFoundError();
   }
 
   await Promise.all([
-    Subscriber.findByIdAndDelete(id),
+    Subscriber.findOneAndDelete({ipAddress}),
     logSubscriberActivity(
       "subscriber_delete",
-      `Subscriber deleted: ${subscriber.email}`,
+      `Subscriber deleted: ${subscriber.ipAddress}`,
       {
         subscriberId: subscriber._id,
-        email: subscriber.email,
-        name: subscriber.name,
+        ipAddress: subscriber.ipAddress,
+        ispProvider: subscriber.ispProvider,
       }
     ),
   ]);

@@ -21,6 +21,7 @@ app.use(express.static("public"));
 
 // Define all your valid routes FIRST
 // app.use("/", require("./routes/root"));
+app.use("/api/auth", require("./routes/root")); 
 app.use("/api/auth", require("./routes/authRoutes")); 
 app.use("/api/userip", require("./routes/userIp")); 
 app.use("/api/offers", require("./routes/offersRoutes"));
