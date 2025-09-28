@@ -171,6 +171,7 @@ const updateOffer = asyncHandler(async (req, res) => {
 
   try {
     // Apply updates
+    console.log(offer, updates);
     Object.assign(offer, updates);
     await offer.save();
 

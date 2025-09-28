@@ -21,23 +21,14 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-    const user = await User.findById(decoded.UserInfo.id).lean();
+    const user = await User.findById(decoded.userId).lean();
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
     
-    // if (!user.banned) {
-    //   return res.status(403).json({ message: "Account is In Active", accountDeactivated: true });
-    // }
-
-    // if (!user.isActive) {
-    //   return res.status(403).json({ message: "Account is In Active", accountDeactivated: true });
-    // }
-    
     req.user = {
-      id: user._id,
-      username: user.userName,
-      roles: user.roles,
+      id: user.userId,
+      email: user.email,
     };
     
 
