@@ -1,5 +1,5 @@
 // controllers/giftCardController.js
-const GiftCard = require("../model/GiftCard");
+const GiftCard = require("../model/Giftcard");
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const { sanitizeInput } = require("../utils/sanitizeInput");
