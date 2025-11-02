@@ -26,6 +26,10 @@ app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/userip", require("./routes/userIp")); 
 app.use("/api/offers", require("./routes/offersRoutes"));
 app.use("/api/subscribers", require("./routes/subscriberRoutes"));
+app.use("/api/apps", require("./routes/appRoutes"));
+app.use("/api/games", require("./routes/gameRoutes"));
+app.use("/api/giftcards", require("./routes/giftcardRoutes"));
+app.use("/api/coupons", require("./routes/couponRoutes"));
 
 // Then add the 404 handler LAST
 app.all(/(.*)/, (req, res) => {
