@@ -3,7 +3,7 @@ exports.allowedOrigins = [
     'https://modloot.xyz/',
     'https://modloot.xyz',
     'modloot.xyz/',
-    'modloot.xyz',
+    'modloot.xyz', 
     "https://www.modloot.xyz",
     "https://goldengoose-kappa.vercel.app"
 ];
