@@ -22,6 +22,7 @@ router.patch('/:id/use', appController.incrementAppUsage);
 router.patch('/:id/rate', appController.updateAppRating);
 
 // Admin routes
+router.post('/batch', appController.batchCreateApps);
 router.post('/', verifyJWT, verifyAdmin, appController.createApp);
 router.put('/:id', verifyJWT, verifyAdmin, appController.updateApp);
 router.delete('/:id', verifyJWT, verifyAdmin, appController.deleteApp);

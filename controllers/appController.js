@@ -253,6 +253,108 @@ const createApp = asyncHandler(async (req, res) => {
   }
 });
 
+
+const batchCreateApps = asyncHandler(async (req, res) => {
+  try {
+    const { apps } = req.body;
+
+    if (!Array.isArray(apps) || apps.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Request body must include a non-empty 'apps' array",
+      });
+    }
+
+    // Sanitize and prepare valid apps
+    const validApps = [];
+    const errors = [];
+
+    for (const [index, appData] of apps.entries()) {
+      const sanitized = sanitizeInput(appData);
+
+      const {
+        title,
+        merchant,
+        image,
+        logo,
+        offer,
+        description,
+        rating,
+        totalRatings,
+        itemsLeft,
+        expiry,
+        usesToday,
+        usedToday,
+        verified,
+        details,
+        code,
+        badge,
+        action,
+      } = sanitized;
+
+      if (
+        !title ||
+        !merchant ||
+        !image ||
+        !logo ||
+        !offer ||
+        !description ||
+        !action ||
+        !action.actionLink
+      ) {
+        errors.push(`App ${index + 1}: missing required fields`);
+        continue;
+      }
+
+      validApps.push({
+        title,
+        merchant,
+        image,
+        logo,
+        offer,
+        description,
+        rating: rating || 0,
+        totalRatings: totalRatings || 0,
+        itemsLeft: itemsLeft || 0,
+        expiry: expiry || "No expiration",
+        usesToday: usesToday || "0",
+        usedToday: usedToday || 0,
+        verified: verified || false,
+        details: details || description,
+        code: code || "",
+        badge: badge || null,
+        action,
+      });
+    }
+
+    if (validApps.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid app entries provided",
+        errors,
+      });
+    }
+
+    // Insert all valid apps in bulk
+    const insertedApps = await App.insertMany(validApps, { ordered: false });
+
+    res.status(201).json({
+      success: true,
+      message: `Batch created successfully: ${insertedApps.length} apps saved`,
+      data: insertedApps,
+      ...(errors.length > 0 && { warnings: errors }),
+    });
+  } catch (error) {
+    console.error("Batch create error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while batch creating apps",
+      error: error.message,
+    });
+  }
+});
+
+
 // @desc    Update app
 // @route   PUT /api/apps/:id
 // @access  Private/Admin
@@ -1037,4 +1139,5 @@ module.exports = {
   updateAppClicks,
   getAppClickAnalytics,
   getAppsClickStats,
+  batchCreateApps
 };
