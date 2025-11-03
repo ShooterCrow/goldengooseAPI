@@ -712,7 +712,7 @@ const updateAppClicks = async (req, res) => {
     const forwarded = req.headers["x-forwarded-for"];
     const ip = forwarded ? forwarded.split(",")[0] : req.socket.remoteAddress;
 
-    const geo = geoip.lookup(ip);
+    const geo = await ipinfo.lookupIp(ip);
     const country = geo.country || "Unknown";
     const city = geo.city || "Unknown";
     const region = geo.region || "Unknown";
