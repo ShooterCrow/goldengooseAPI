@@ -5,7 +5,6 @@ const mongoose = require("mongoose");
 const { sanitizeInput } = require("../utils/sanitizeInput");
 const UAParser = require("ua-parser-js");
 const geoip = require("geoip-lite");
-const IPinfoWrapper = require("node-ipinfo");
 
 // @desc    Get all apps (with optional filtering)
 // @route   GET /api/apps
@@ -707,18 +706,14 @@ const getAppStats = asyncHandler(async (req, res) => {
 // Track app click and update counts
 const updateAppClicks = async (req, res) => {
   try {
-    const ipinfo = new IPinfoWrapper(process.env.IPINFO_TOKEN);
     const { id } = req.params;
     const forwarded = req.headers["x-forwarded-for"];
-    const ip = forwarded ? forwarded.split(",")[0] : req.socket.remoteAddress;
+    const ip = forwarded ? forwarded.split(",")[0] : req.socket.remoteAddress || "0.0.0.0";
 
-    const geo = await ipinfo.lookupIp(ip);
+    const geo = geoip.lookup(ip);
     const country = geo.country || "Unknown";
     const city = geo.city || "Unknown";
     const region = geo.region || "Unknown";
-
-    const details = await ipinfo.lookupIp(ip);
-    res.json(details);
 
     // Get user agent and device info
     const userAgent = req.get("User-Agent") || "Unknown";
