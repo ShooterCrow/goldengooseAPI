@@ -3,7 +3,9 @@ const App = require("../model/App");
 const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
 const { sanitizeInput } = require("../utils/sanitizeInput");
-const UAParser = require('ua-parser-js');
+const UAParser = require("ua-parser-js");
+const geoip = require("geoip-lite");
+const IPinfoWrapper = require("node-ipinfo");
 
 // @desc    Get all apps (with optional filtering)
 // @route   GET /api/apps
@@ -23,24 +25,24 @@ const getAllApps = asyncHandler(async (req, res) => {
       badge,
       sortBy = "createdAt",
       sortOrder = "desc",
-      activeOnly = true
+      activeOnly = true,
     } = req.query;
 
     // Build filter object
     let filter = {};
-    
+
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
-        { details: { $regex: search, $options: "i" } }
+        { details: { $regex: search, $options: "i" } },
       ];
     }
-    
+
     if (merchant) {
       filter.merchant = { $regex: merchant, $options: "i" };
     }
-    
+
     if (minRating !== undefined || maxRating !== undefined) {
       filter.rating = {};
       if (minRating !== undefined) filter.rating.$gte = Number(minRating);
@@ -49,8 +51,10 @@ const getAllApps = asyncHandler(async (req, res) => {
 
     if (minItemsLeft !== undefined || maxItemsLeft !== undefined) {
       filter.itemsLeft = {};
-      if (minItemsLeft !== undefined) filter.itemsLeft.$gte = Number(minItemsLeft);
-      if (maxItemsLeft !== undefined) filter.itemsLeft.$lte = Number(maxItemsLeft);
+      if (minItemsLeft !== undefined)
+        filter.itemsLeft.$gte = Number(minItemsLeft);
+      if (maxItemsLeft !== undefined)
+        filter.itemsLeft.$lte = Number(maxItemsLeft);
     }
 
     if (verified !== undefined) {
@@ -82,8 +86,8 @@ const getAllApps = asyncHandler(async (req, res) => {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
         totalItems: total,
-        itemsPerPage: parseInt(limit)
-      }
+        itemsPerPage: parseInt(limit),
+      },
     });
   } catch (error) {
     console.error("Get all apps error:", error);
@@ -134,7 +138,7 @@ const createApp = asyncHandler(async (req, res) => {
   try {
     // Sanitize input data
     const sanitizedBody = sanitizeInput(req.body);
-    
+
     const {
       title,
       merchant,
@@ -152,14 +156,24 @@ const createApp = asyncHandler(async (req, res) => {
       details,
       code,
       badge,
-      action
+      action,
     } = sanitizedBody;
 
     // Validation
-    if (!title || !merchant || !image || !logo || !offer || !description || !action || !action.actionLink) {
+    if (
+      !title ||
+      !merchant ||
+      !image ||
+      !logo ||
+      !offer ||
+      !description ||
+      !action ||
+      !action.actionLink
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Title, merchant, image, logo, offer, description, action, and actionLink are required",
+        message:
+          "Title, merchant, image, logo, offer, description, action, and actionLink are required",
       });
     }
 
@@ -213,7 +227,7 @@ const createApp = asyncHandler(async (req, res) => {
       details: details || description,
       code: code || "",
       badge: badge || null,
-      action: action 
+      action: action,
     });
 
     const savedApp = await app.save();
@@ -226,7 +240,7 @@ const createApp = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error("Create app error:", error);
     if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map(val => val.message);
+      const errors = Object.values(error.errors).map((val) => val.message);
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -247,7 +261,7 @@ const updateApp = asyncHandler(async (req, res) => {
   try {
     // Sanitize input data
     const sanitizedBody = sanitizeInput(req.body);
-    
+
     const app = await App.findById(req.params.id);
 
     if (!app) {
@@ -269,7 +283,10 @@ const updateApp = asyncHandler(async (req, res) => {
     }
 
     // Validate rating if provided
-    if (sanitizedBody.rating !== undefined && (sanitizedBody.rating < 0 || sanitizedBody.rating > 5)) {
+    if (
+      sanitizedBody.rating !== undefined &&
+      (sanitizedBody.rating < 0 || sanitizedBody.rating > 5)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Rating must be between 0 and 5",
@@ -291,7 +308,7 @@ const updateApp = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error("Update app error:", error);
     if (error.name === "ValidationError") {
-      const errors = Object.values(error.errors).map(val => val.message);
+      const errors = Object.values(error.errors).map((val) => val.message);
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -320,7 +337,7 @@ const deleteApp = asyncHandler(async (req, res) => {
     }
 
     await App.findByIdAndDelete(req.params.id);
-    
+
     res.json({
       success: true,
       message: "App deleted successfully",
@@ -345,19 +362,19 @@ const getVerifiedApps = asyncHandler(async (req, res) => {
       search,
       minRating = 4.0,
       sortBy = "rating",
-      sortOrder = "desc"
+      sortOrder = "desc",
     } = req.query;
 
     // Build filter object
     let filter = {
       verified: true,
-      rating: { $gte: Number(minRating) }
+      rating: { $gte: Number(minRating) },
     };
-    
+
     if (search) {
       filter.$or = [
         { title: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } }
+        { description: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -382,8 +399,8 @@ const getVerifiedApps = asyncHandler(async (req, res) => {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
         totalItems: total,
-        itemsPerPage: parseInt(limit)
-      }
+        itemsPerPage: parseInt(limit),
+      },
     });
   } catch (error) {
     console.error("Get verified apps error:", error);
@@ -405,12 +422,12 @@ const getAppsByBadge = asyncHandler(async (req, res) => {
       limit = 10,
       verified = true,
       sortBy = "rating",
-      sortOrder = "desc"
+      sortOrder = "desc",
     } = req.query;
 
     // Build filter object
     let filter = { badge };
-    
+
     if (verified) {
       filter.verified = true;
     }
@@ -437,8 +454,8 @@ const getAppsByBadge = asyncHandler(async (req, res) => {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
         totalItems: total,
-        itemsPerPage: parseInt(limit)
-      }
+        itemsPerPage: parseInt(limit),
+      },
     });
   } catch (error) {
     console.error("Get apps by badge error:", error);
@@ -475,10 +492,10 @@ const incrementAppUsage = asyncHandler(async (req, res) => {
     const updatedApp = await App.findByIdAndUpdate(
       req.params.id,
       {
-        $inc: { 
+        $inc: {
           usedToday: 1,
-          itemsLeft: -1 
-        }
+          itemsLeft: -1,
+        },
       },
       { new: true, runValidators: true }
     );
@@ -503,36 +520,37 @@ const incrementAppUsage = asyncHandler(async (req, res) => {
 const updateAppRating = asyncHandler(async (req, res) => {
   try {
     const { rating } = req.body;
-    
+
     if (!rating || rating < 0 || rating > 5) {
       return res.status(400).json({
         success: false,
-        message: "Rating must be between 0 and 5"
+        message: "Rating must be between 0 and 5",
       });
     }
 
     const app = await App.findById(req.params.id);
-    
+
     if (!app) {
       return res.status(404).json({
         success: false,
-        message: "App not found"
+        message: "App not found",
       });
     }
 
     // Calculate new average rating
     const newTotalRatings = app.totalRatings + 1;
-    const newRating = ((app.rating * app.totalRatings) + rating) / newTotalRatings;
+    const newRating =
+      (app.rating * app.totalRatings + rating) / newTotalRatings;
 
     const updatedApp = await App.findByIdAndUpdate(
       req.params.id,
       {
         rating: parseFloat(newRating.toFixed(1)),
-        totalRatings: newTotalRatings
+        totalRatings: newTotalRatings,
       },
       {
         new: true,
-        runValidators: true
+        runValidators: true,
       }
     );
 
@@ -555,27 +573,22 @@ const updateAppRating = asyncHandler(async (req, res) => {
 // @access  Public
 const getTrendingApps = asyncHandler(async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      minRating = 4.5,
-      minUsage = 50
-    } = req.query;
+    const { page = 1, limit = 10, minRating = 4.5, minUsage = 50 } = req.query;
 
     const apps = await App.find({
       verified: true,
       rating: { $gte: Number(minRating) },
-      usedToday: { $gte: Number(minUsage) }
+      usedToday: { $gte: Number(minUsage) },
     })
-    .sort({ rating: -1, usedToday: -1 })
-    .limit(limit * 1)
-    .skip((page - 1) * limit)
-    .exec();
+      .sort({ rating: -1, usedToday: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
 
     const total = await App.countDocuments({
       verified: true,
       rating: { $gte: Number(minRating) },
-      usedToday: { $gte: Number(minUsage) }
+      usedToday: { $gte: Number(minUsage) },
     });
 
     res.json({
@@ -585,8 +598,8 @@ const getTrendingApps = asyncHandler(async (req, res) => {
         currentPage: parseInt(page),
         totalPages: Math.ceil(total / limit),
         totalItems: total,
-        itemsPerPage: parseInt(limit)
-      }
+        itemsPerPage: parseInt(limit),
+      },
     });
   } catch (error) {
     console.error("Get trending apps error:", error);
@@ -596,7 +609,6 @@ const getTrendingApps = asyncHandler(async (req, res) => {
     });
   }
 });
-
 
 // @desc    Get apps statistics
 // @route   GET /api/apps/stats/overview
@@ -608,71 +620,71 @@ const getAppStats = asyncHandler(async (req, res) => {
         $group: {
           _id: null,
           totalApps: { $sum: 1 },
-          totalRatings: { $sum: '$totalRatings' },
-          avgRating: { $avg: '$rating' },
-          totalUsedToday: { $sum: '$usedToday' },
-          totalItemsLeft: { $sum: '$itemsLeft' },
-          verifiedApps: { $sum: { $cond: ['$verified', 1, 0] } },
-          totalItemsAvailable: { $sum: '$itemsLeft' }
-        }
+          totalRatings: { $sum: "$totalRatings" },
+          avgRating: { $avg: "$rating" },
+          totalUsedToday: { $sum: "$usedToday" },
+          totalItemsLeft: { $sum: "$itemsLeft" },
+          verifiedApps: { $sum: { $cond: ["$verified", 1, 0] } },
+          totalItemsAvailable: { $sum: "$itemsLeft" },
+        },
       },
       {
         $project: {
           _id: 0,
           totalApps: 1,
           totalRatings: 1,
-          avgRating: { $round: ['$avgRating', 1] },
+          avgRating: { $round: ["$avgRating", 1] },
           totalUsedToday: 1,
           totalItemsLeft: 1,
           verifiedApps: 1,
-          unverifiedApps: { $subtract: ['$totalApps', '$verifiedApps'] },
-          totalItemsAvailable: 1
-        }
-      }
+          unverifiedApps: { $subtract: ["$totalApps", "$verifiedApps"] },
+          totalItemsAvailable: 1,
+        },
+      },
     ]);
 
     const badgeStats = await App.aggregate([
       {
         $group: {
-          _id: '$badge',
+          _id: "$badge",
           count: { $sum: 1 },
-          avgRating: { $avg: '$rating' },
-          totalUsed: { $sum: '$usedToday' }
-        }
+          avgRating: { $avg: "$rating" },
+          totalUsed: { $sum: "$usedToday" },
+        },
       },
       {
         $project: {
-          badge: '$_id',
+          badge: "$_id",
           count: 1,
-          avgRating: { $round: ['$avgRating', 1] },
+          avgRating: { $round: ["$avgRating", 1] },
           totalUsed: 1,
-          _id: 0
-        }
+          _id: 0,
+        },
       },
       {
-        $sort: { count: -1 }
-      }
+        $sort: { count: -1 },
+      },
     ]);
 
     const merchantStats = await App.aggregate([
       {
         $group: {
-          _id: '$merchant',
+          _id: "$merchant",
           count: { $sum: 1 },
-          avgRating: { $avg: '$rating' }
-        }
+          avgRating: { $avg: "$rating" },
+        },
       },
       {
         $project: {
-          merchant: '$_id',
+          merchant: "$_id",
           count: 1,
-          avgRating: { $round: ['$avgRating', 1] },
-          _id: 0
-        }
+          avgRating: { $round: ["$avgRating", 1] },
+          _id: 0,
+        },
       },
       {
-        $sort: { count: -1 }
-      }
+        $sort: { count: -1 },
+      },
     ]);
 
     res.json({
@@ -680,8 +692,8 @@ const getAppStats = asyncHandler(async (req, res) => {
       data: {
         overview: stats[0] || {},
         badges: badgeStats,
-        merchants: merchantStats.slice(0, 10) // Top 10 merchants
-      }
+        merchants: merchantStats.slice(0, 10), // Top 10 merchants
+      },
     });
   } catch (error) {
     console.error("Get app stats error:", error);
@@ -695,24 +707,23 @@ const getAppStats = asyncHandler(async (req, res) => {
 // Track app click and update counts
 const updateAppClicks = async (req, res) => {
   try {
+    const ipinfo = new IPinfoWrapper(process.env.IPINFO_TOKEN);
     const { id } = req.params;
-    
-    // Get client IP address
-    const ip = req.ip || 
-               req.connection.remoteAddress || 
-               req.socket.remoteAddress ||
-               (req.connection.socket ? req.connection.socket.remoteAddress : null);
+    const forwarded = req.headers["x-forwarded-for"];
+    const ip = forwarded ? forwarded.split(",")[0] : req.socket.remoteAddress;
 
-    // Get geolocation data (you might want to use geoip-lite here)
-    const geo = req.geo || {}; // This would come from your geoip middleware
-    const country = geo.country || 'Unknown';
-    const city = geo.city || 'Unknown';
-    const region = geo.region || 'Unknown';
+    const geo = await ipinfo.lookupIp(ip);
+    const country = geo.country || "Unknown";
+    const city = geo.city || "Unknown";
+    const region = geo.region || "Unknown";
+
+    const details = await ipinfo.lookupIp(ip);
+    res.json(details);
 
     // Get user agent and device info
-    const userAgent = req.get('User-Agent') || 'Unknown';
-    const referrer = req.get('Referer') || 'Direct';
-    
+    const userAgent = req.get("User-Agent") || "Unknown";
+    const referrer = req.get("Referer") || "Direct";
+
     // Parse user agent for device type
     const deviceType = getDeviceType(userAgent);
     const parser = new UAParser(userAgent);
@@ -728,21 +739,21 @@ const updateAppClicks = async (req, res) => {
       userAgent,
       referrer,
       deviceType,
-      browser: `${browser.name || 'Unknown'} ${browser.version || ''}`.trim(),
-      os: `${os.name || 'Unknown'} ${os.version || ''}`.trim(),
+      browser: `${browser.name || "Unknown"} ${browser.version || ""}`.trim(),
+      os: `${os.name || "Unknown"} ${os.version || ""}`.trim(),
       sessionId: generateSessionId(req),
       userId: req.user?._id || null,
-      isUnique: true // We'll check uniqueness below
+      isUnique: true, // We'll check uniqueness below
     };
 
     // Check if this is a unique click (based on IP and session in last 24 hours)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+
     const existingClick = await App.findOne({
       _id: id,
-      'clicks.ip': ip,
-      'clicks.sessionId': clickData.sessionId,
-      'clicks.date': { $gte: twentyFourHoursAgo }
+      "clicks.ip": ip,
+      "clicks.sessionId": clickData.sessionId,
+      "clicks.date": { $gte: twentyFourHoursAgo },
     });
 
     clickData.isUnique = !existingClick;
@@ -752,11 +763,11 @@ const updateAppClicks = async (req, res) => {
       id,
       {
         $push: { clicks: clickData },
-        $inc: { 
+        $inc: {
           totalClicks: 1,
-          ...(clickData.isUnique && { uniqueClicks: 1 })
+          ...(clickData.isUnique && { uniqueClicks: 1 }),
         },
-        $set: { lastClicked: new Date() }
+        $set: { lastClicked: new Date() },
       },
       { new: true, runValidators: true }
     );
@@ -764,7 +775,7 @@ const updateAppClicks = async (req, res) => {
     if (!updatedApp) {
       return res.status(404).json({
         success: false,
-        message: 'App not found'
+        message: "App not found",
       });
     }
 
@@ -775,16 +786,15 @@ const updateAppClicks = async (req, res) => {
         appId: updatedApp._id,
         totalClicks: updatedApp.totalClicks,
         uniqueClicks: updatedApp.uniqueClicks,
-        isUnique: clickData.isUnique
-      }
+        isUnique: clickData.isUnique,
+      },
     });
-
   } catch (error) {
-    console.error('App click tracking error:', error);
+    console.error("App click tracking error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to track app click',
-      error: error.message
+      message: "Failed to track app click",
+      error: error.message,
     });
   }
 };
@@ -793,13 +803,13 @@ const updateAppClicks = async (req, res) => {
 const getAppClickAnalytics = async (req, res) => {
   try {
     const { id } = req.params;
-    const { days = 30, groupBy = 'day' } = req.query;
+    const { days = 30, groupBy = "day" } = req.query;
 
     const app = await App.findById(id);
     if (!app) {
       return res.status(404).json({
         success: false,
-        message: 'App not found'
+        message: "App not found",
       });
     }
 
@@ -809,95 +819,95 @@ const getAppClickAnalytics = async (req, res) => {
     // Get daily click statistics
     const dailyClicks = await App.aggregate([
       { $match: { _id: app._id } },
-      { $unwind: '$clicks' },
-      { $match: { 'clicks.date': { $gte: startDate } } },
+      { $unwind: "$clicks" },
+      { $match: { "clicks.date": { $gte: startDate } } },
       {
         $group: {
           _id: {
-            $dateToString: { 
-              format: groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m-%d-%H', 
-              date: '$clicks.date' 
-            }
+            $dateToString: {
+              format: groupBy === "day" ? "%Y-%m-%d" : "%Y-%m-%d-%H",
+              date: "$clicks.date",
+            },
           },
           totalClicks: { $sum: 1 },
-          uniqueClicks: { $sum: { $cond: ['$clicks.isUnique', 1, 0] } }
-        }
+          uniqueClicks: { $sum: { $cond: ["$clicks.isUnique", 1, 0] } },
+        },
       },
       { $sort: { _id: 1 } },
       {
         $project: {
-          date: '$_id',
+          date: "$_id",
           totalClicks: 1,
-          uniqueClicks: 1
-        }
-      }
+          uniqueClicks: 1,
+        },
+      },
     ]);
 
     // Get geographic distribution
     const geoDistribution = await App.aggregate([
       { $match: { _id: app._id } },
-      { $unwind: '$clicks' },
-      { $match: { 'clicks.date': { $gte: startDate } } },
+      { $unwind: "$clicks" },
+      { $match: { "clicks.date": { $gte: startDate } } },
       {
         $group: {
-          _id: '$clicks.country',
+          _id: "$clicks.country",
           totalClicks: { $sum: 1 },
-          uniqueClicks: { $sum: { $cond: ['$clicks.isUnique', 1, 0] } }
-        }
+          uniqueClicks: { $sum: { $cond: ["$clicks.isUnique", 1, 0] } },
+        },
       },
       { $sort: { totalClicks: -1 } },
       {
         $project: {
-          country: '$_id',
+          country: "$_id",
           totalClicks: 1,
-          uniqueClicks: 1
-        }
-      }
+          uniqueClicks: 1,
+        },
+      },
     ]);
 
     // Get device statistics
     const deviceStats = await App.aggregate([
       { $match: { _id: app._id } },
-      { $unwind: '$clicks' },
-      { $match: { 'clicks.date': { $gte: startDate } } },
+      { $unwind: "$clicks" },
+      { $match: { "clicks.date": { $gte: startDate } } },
       {
         $group: {
-          _id: '$clicks.deviceType',
+          _id: "$clicks.deviceType",
           totalClicks: { $sum: 1 },
-          uniqueClicks: { $sum: { $cond: ['$clicks.isUnique', 1, 0] } }
-        }
+          uniqueClicks: { $sum: { $cond: ["$clicks.isUnique", 1, 0] } },
+        },
       },
       { $sort: { totalClicks: -1 } },
       {
         $project: {
-          deviceType: '$_id',
+          deviceType: "$_id",
           totalClicks: 1,
-          uniqueClicks: 1
-        }
-      }
+          uniqueClicks: 1,
+        },
+      },
     ]);
 
     // Get referrer statistics
     const referrerStats = await App.aggregate([
       { $match: { _id: app._id } },
-      { $unwind: '$clicks' },
-      { $match: { 'clicks.date': { $gte: startDate } } },
+      { $unwind: "$clicks" },
+      { $match: { "clicks.date": { $gte: startDate } } },
       {
         $group: {
-          _id: '$clicks.referrer',
+          _id: "$clicks.referrer",
           totalClicks: { $sum: 1 },
-          uniqueClicks: { $sum: { $cond: ['$clicks.isUnique', 1, 0] } }
-        }
+          uniqueClicks: { $sum: { $cond: ["$clicks.isUnique", 1, 0] } },
+        },
       },
       { $sort: { totalClicks: -1 } },
       { $limit: 10 },
       {
         $project: {
-          referrer: '$_id',
+          referrer: "$_id",
           totalClicks: 1,
-          uniqueClicks: 1
-        }
-      }
+          uniqueClicks: 1,
+        },
+      },
     ]);
 
     res.json({
@@ -908,8 +918,10 @@ const getAppClickAnalytics = async (req, res) => {
           title: app.title,
           totalClicks: app.totalClicks,
           uniqueClicks: app.uniqueClicks,
-          clickThroughRate: app.totalClicks > 0 ? 
-            ((app.uniqueClicks / app.totalClicks) * 100).toFixed(2) : 0
+          clickThroughRate:
+            app.totalClicks > 0
+              ? ((app.uniqueClicks / app.totalClicks) * 100).toFixed(2)
+              : 0,
         },
         dailyClicks,
         geoDistribution,
@@ -918,17 +930,16 @@ const getAppClickAnalytics = async (req, res) => {
         period: {
           start: startDate,
           end: new Date(),
-          days: parseInt(days)
-        }
-      }
+          days: parseInt(days),
+        },
+      },
     });
-
   } catch (error) {
-    console.error('App click analytics error:', error);
+    console.error("App click analytics error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch app click analytics',
-      error: error.message
+      message: "Failed to fetch app click analytics",
+      error: error.message,
     });
   }
 };
@@ -937,10 +948,10 @@ const getAppClickAnalytics = async (req, res) => {
 const getAppsClickStats = async (req, res) => {
   try {
     const { appIds, days = 30 } = req.query;
-    
+
     let matchStage = {};
     if (appIds) {
-      const ids = Array.isArray(appIds) ? appIds : appIds.split(',');
+      const ids = Array.isArray(appIds) ? appIds : appIds.split(",");
       matchStage._id = { $in: ids };
     }
 
@@ -960,55 +971,60 @@ const getAppsClickStats = async (req, res) => {
           recentClicks: {
             $size: {
               $filter: {
-                input: '$clicks',
-                as: 'click',
-                cond: { $gte: ['$$click.date', startDate] }
-              }
-            }
+                input: "$clicks",
+                as: "click",
+                cond: { $gte: ["$$click.date", startDate] },
+              },
+            },
           },
           clickThroughRate: {
             $cond: {
-              if: { $gt: ['$totalClicks', 0] },
-              then: { $multiply: [{ $divide: ['$uniqueClicks', '$totalClicks'] }, 100] },
-              else: 0
-            }
+              if: { $gt: ["$totalClicks", 0] },
+              then: {
+                $multiply: [
+                  { $divide: ["$uniqueClicks", "$totalClicks"] },
+                  100,
+                ],
+              },
+              else: 0,
+            },
           },
-          lastClicked: 1
-        }
+          lastClicked: 1,
+        },
       },
-      { $sort: { recentClicks: -1, totalClicks: -1 } }
+      { $sort: { recentClicks: -1, totalClicks: -1 } },
     ]);
 
     res.json({
       success: true,
-      data: appsStats
+      data: appsStats,
     });
-
   } catch (error) {
-    console.error('Apps click stats error:', error);
+    console.error("Apps click stats error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch apps click statistics',
-      error: error.message
+      message: "Failed to fetch apps click statistics",
+      error: error.message,
     });
   }
 };
 
 // Helper functions (you can move these to a separate utils file)
 const getDeviceType = (userAgent) => {
-  const mobileRegex = /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+  const mobileRegex =
+    /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
   const tabletRegex = /Tablet|iPad|Android(?!.*Mobile)/i;
-  
-  if (tabletRegex.test(userAgent)) return 'tablet';
-  if (mobileRegex.test(userAgent)) return 'mobile';
-  return 'desktop';
+
+  if (tabletRegex.test(userAgent)) return "tablet";
+  if (mobileRegex.test(userAgent)) return "mobile";
+  return "desktop";
 };
 
 const generateSessionId = (req) => {
-  return req.sessionID || 
-         req.ip + 
-         req.get('User-Agent')?.substring(0, 25) + 
-         Date.now().toString(36);
+  return (
+    req.sessionID ||
+    req.ip + req.get("User-Agent")?.substring(0, 25) + Date.now().toString(36)
+  );
 };
 
 module.exports = {
@@ -1025,5 +1041,5 @@ module.exports = {
   getAppStats,
   updateAppClicks,
   getAppClickAnalytics,
-  getAppsClickStats
+  getAppsClickStats,
 };
