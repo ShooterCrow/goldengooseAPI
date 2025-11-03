@@ -1,5 +1,6 @@
 // models/App.js
 const mongoose = require('mongoose');
+const clickSchema = require('./clickSchema');
 
 const appSchema = new mongoose.Schema({
   title: {
@@ -83,6 +84,15 @@ const appSchema = new mongoose.Schema({
     type: String,
     enum: ['Music', 'Design', 'Streaming', 'Photo', 'Video', 'AI', 'Health', 'General', 'Productivity', 'Entertainment', 'Social'],
     default: 'General'
+  },
+  clicks: [clickSchema],
+  totalClicks: {
+    type: Number,
+    default: 0
+  },
+  uniqueClicks: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

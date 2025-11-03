@@ -10,8 +10,12 @@ router.get('/', appController.getAllApps);
 router.get('/verified', appController.getVerifiedApps);
 router.get('/category/:badge', appController.getAppsByBadge);
 router.get('/trending', appController.getTrendingApps);
-router.get('/limited-stock', appController.getLimitedStockApps);
-router.get('/:id', appController.getApp);
+router.get('/:id', appController.getApp); // Click tracking middleware
+
+// Click tracking routes
+router.post('/:id/track-click', appController.updateAppClicks); // Alternative explicit tracking
+router.get('/:id/analytics/clicks', verifyJWT, verifyAdmin, appController.getAppClickAnalytics);
+router.get('/analytics/clicks', verifyJWT, verifyAdmin, appController.getAppsClickStats);
 
 // Usage and rating routes (public but might want to protect later)
 router.patch('/:id/use', appController.incrementAppUsage);

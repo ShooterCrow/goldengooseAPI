@@ -27,8 +27,9 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
     }
     
     req.user = {
-      id: user.userId,
+      id: user._id,
       email: user.email,
+      roles: user.roles,
     };
     
 

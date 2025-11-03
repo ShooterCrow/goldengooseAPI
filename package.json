@@ -30,6 +30,7 @@
     "react-dom": "^19.1.1",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.9.3",
+    "ua-parser-js": "^2.0.6",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
