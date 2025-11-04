@@ -31,6 +31,7 @@ app.use("/api/games", require("./routes/gameRoutes"));
 app.use("/api/giftcards", require("./routes/giftcardRoutes"));
 app.use("/api/coupons", require("./routes/couponRoutes"));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/all-users', require('./routes/allUserRoute'));
 
 // Then add the 404 handler LAST
 app.all(/(.*)/, (req, res) => {

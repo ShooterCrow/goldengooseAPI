@@ -259,6 +259,248 @@ const createCoupon = asyncHandler(async (req, res) => {
   }
 });
 
+const batchCreateCoupons = asyncHandler(async (req, res) => {
+  const { coupons } = req.body;
+
+  // Validate input
+  if (!Array.isArray(coupons) || coupons.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Request body must include a non-empty 'coupons' array",
+    });
+  }
+
+  const validCoupons = [];
+  const errors = [];
+
+  // Extract all codes to check for duplicates in a single query (only non-empty codes)
+  const codes = coupons
+    .map(c => c?.code?.trim().toUpperCase())
+    .filter(Boolean);
+
+  // Check for existing codes in database (only if there are codes to check)
+  let existingCodes = new Set();
+  if (codes.length > 0) {
+    const existingCoupons = await Coupon.find({ 
+      code: { $in: codes } 
+    }).select('code');
+    
+    existingCodes = new Set(
+      existingCoupons.map(c => c.code.toUpperCase())
+    );
+  }
+
+  // Track codes within the batch to prevent internal duplicates
+  const batchCodes = new Set();
+
+  for (const [index, couponData] of coupons.entries()) {
+    try {
+      const sanitized = sanitizeInput(couponData);
+      const {
+        title,
+        merchant,
+        image,
+        logo,
+        offer,
+        description,
+        rating,
+        totalRatings,
+        itemsLeft,
+        expiry,
+        usesToday,
+        usedToday,
+        verified,
+        details,
+        code,
+        badge,
+        action,
+      } = sanitized;
+
+      // Validate required fields (code is now optional)
+      if (!title || !merchant || !image || !logo || !offer || 
+          !description || !action || !action.actionLink) {
+        errors.push({
+          index: index + 1,
+          code: code || 'N/A',
+          error: 'Missing required fields'
+        });
+        continue;
+      }
+
+      // Normalize code if provided
+      const normalizedCode = code ? code.trim().toUpperCase() : null;
+
+      // Only check for duplicates if code is provided
+      if (normalizedCode) {
+        // Check for duplicate in database
+        if (existingCodes.has(normalizedCode)) {
+          errors.push({
+            index: index + 1,
+            code: normalizedCode,
+            error: 'Code already exists in database'
+          });
+          continue;
+        }
+
+        // Check for duplicate within batch
+        if (batchCodes.has(normalizedCode)) {
+          errors.push({
+            index: index + 1,
+            code: normalizedCode,
+            error: 'Duplicate code within batch'
+          });
+          continue;
+        }
+
+        // Add to batch codes tracking
+        batchCodes.add(normalizedCode);
+      }
+
+      // Validate rating range
+      if (rating !== undefined && (rating < 0 || rating > 5)) {
+        errors.push({
+          index: index + 1,
+          code: normalizedCode || 'N/A',
+          error: 'Rating must be between 0 and 5'
+        });
+        continue;
+      }
+
+      // Validate non-negative counts
+      if (totalRatings !== undefined && totalRatings < 0) {
+        errors.push({
+          index: index + 1,
+          code: normalizedCode || 'N/A',
+          error: 'totalRatings cannot be negative'
+        });
+        continue;
+      }
+
+      if (itemsLeft !== undefined && itemsLeft < 0) {
+        errors.push({
+          index: index + 1,
+          code: normalizedCode || 'N/A',
+          error: 'itemsLeft cannot be negative'
+        });
+        continue;
+      }
+
+      if (usedToday !== undefined && usedToday < 0) {
+        errors.push({
+          index: index + 1,
+          code: normalizedCode || 'N/A',
+          error: 'usedToday cannot be negative'
+        });
+        continue;
+      }
+
+      // Validate expiry date if provided
+      if (expiry && expiry !== "No expiration") {
+        const expiryDate = new Date(expiry);
+        if (isNaN(expiryDate.getTime())) {
+          errors.push({
+            index: index + 1,
+            code: normalizedCode || 'N/A',
+            error: 'Invalid expiry date format'
+          });
+          continue;
+        }
+      }
+
+      // Push sanitized valid coupon
+      const couponObject = {
+        title: title.trim(),
+        merchant: merchant.trim(),
+        image,
+        logo,
+        offer: offer.trim(),
+        description: description.trim(),
+        rating: rating ?? 0,
+        totalRatings: totalRatings ?? 0,
+        itemsLeft: itemsLeft ?? 0,
+        expiry: expiry || "No expiration",
+        usesToday: usesToday || "0",
+        usedToday: usedToday ?? 0,
+        verified: verified ?? false,
+        details: details || description.trim(),
+        badge: badge || null,
+        action,
+      };
+
+      // Only add code field if it exists
+      if (normalizedCode) {
+        couponObject.code = normalizedCode;
+      }
+
+      validCoupons.push(couponObject);
+    } catch (err) {
+      errors.push({
+        index: index + 1,
+        code: couponData?.code || 'N/A',
+        error: `Validation error: ${err.message}`
+      });
+    }
+  }
+
+  // If no valid coupons found
+  if (validCoupons.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "No valid coupons to create",
+      errors,
+    });
+  }
+
+  try {
+    // Insert valid coupons in bulk (ordered: false allows continuing on error)
+    const insertedCoupons = await Coupon.insertMany(validCoupons, { 
+      ordered: false 
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `Successfully created ${insertedCoupons.length} out of ${coupons.length} coupons`,
+      data: insertedCoupons,
+      summary: {
+        total: coupons.length,
+        successful: insertedCoupons.length,
+        failed: errors.length
+      },
+      ...(errors.length > 0 && { errors }),
+    });
+  } catch (error) {
+    // Handle bulk insert errors
+    if (error.name === 'MongoBulkWriteError') {
+      const insertedCount = error.result?.nInserted || 0;
+      
+      return res.status(207).json({
+        success: true,
+        message: `Partially successful: ${insertedCount} coupons created`,
+        summary: {
+          total: coupons.length,
+          successful: insertedCount,
+          failed: coupons.length - insertedCount
+        },
+        errors: [
+          ...errors,
+          ...error.writeErrors?.map(e => ({
+            index: e.index + 1,
+            error: e.errmsg
+          })) || []
+        ],
+      });
+    }
+
+    // Other database errors
+    console.error("Batch create coupons error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while batch creating coupons",
+      error: error.message,
+    });
+  }
+});
+
 // @desc    Update coupon
 // @route   PUT /api/coupons/:id
 // @access  Private/Admin
@@ -672,5 +914,6 @@ module.exports = {
   getCouponsByMerchant,
   incrementCouponUsage,
   validateCoupon,
-  getCouponStats
+  getCouponStats,
+  batchCreateCoupons
 };

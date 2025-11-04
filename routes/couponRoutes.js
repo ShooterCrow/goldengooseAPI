@@ -17,7 +17,8 @@ router.get('/:id', couponController.getCoupon);
 router.patch('/:id/use', couponController.incrementCouponUsage);
 
 // Admin routes
-router.post('/', verifyJWT, verifyAdmin, couponController.createCoupon);
+router.post('/batch', couponController.batchCreateCoupons);
+router.post('/', couponController.createCoupon);
 router.put('/:id', verifyJWT, verifyAdmin, couponController.updateCoupon);
 router.delete('/:id', verifyJWT, verifyAdmin, couponController.deleteCoupon);
 router.get('/stats/overview', verifyJWT, verifyAdmin, couponController.getCouponStats);

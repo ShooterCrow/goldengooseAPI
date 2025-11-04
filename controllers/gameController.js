@@ -231,6 +231,202 @@ const createGame = asyncHandler(async (req, res) => {
   }
 });
 
+const batchCreateGames = asyncHandler(async (req, res) => {
+  try {
+    const { games } = req.body;
+
+    // Validate input is an array
+    if (!Array.isArray(games) || games.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Request body must include a non-empty 'games' array",
+      });
+    }
+
+    const results = {
+      successful: [],
+      failed: [],
+    };
+
+    // Extract titles for bulk duplicate check
+    const titles = games
+      .map(g => g?.title?.trim())
+      .filter(Boolean);
+
+    // Check for existing titles in database
+    let existingTitles = new Set();
+    if (titles.length > 0) {
+      const existingGames = await Game.find({ 
+        title: { $in: titles } 
+      }).select('title');
+      existingTitles = new Set(existingGames.map(g => g.title));
+    }
+
+    // Track titles within batch to prevent duplicates
+    const batchTitles = new Set();
+
+    // Process each game
+    for (let index = 0; index < games.length; index++) {
+      try {
+        // Sanitize input data
+        const sanitizedBody = sanitizeInput(games[index]);
+        
+        const {
+          title,
+          merchant,
+          image,
+          logo,
+          offer,
+          description,
+          rating,
+          totalRatings,
+          itemsLeft,
+          expiry,
+          usesToday,
+          usedToday,
+          verified,
+          details,
+          code,
+          badge,
+          action
+        } = sanitizedBody;
+
+        // Validation
+        if (!title || !merchant || !image || !logo || !offer || !description || !action || !action.actionLink) {
+          results.failed.push({
+            index: index + 1,
+            title: title || 'N/A',
+            error: "Title, merchant, image, logo, offer, description, action, and actionLink are required",
+          });
+          continue;
+        }
+
+        // Normalize title
+        const normalizedTitle = title.trim();
+
+        // Check if title already exists in database
+        if (existingTitles.has(normalizedTitle)) {
+          results.failed.push({
+            index: index + 1,
+            title: normalizedTitle,
+            error: "Game with this title already exists in database",
+          });
+          continue;
+        }
+
+        // Check for duplicate within batch
+        if (batchTitles.has(normalizedTitle)) {
+          results.failed.push({
+            index: index + 1,
+            title: normalizedTitle,
+            error: "Duplicate title within batch",
+          });
+          continue;
+        }
+
+        // Add to batch tracking
+        batchTitles.add(normalizedTitle);
+
+        // Validate rating
+        if (rating && (rating < 0 || rating > 5)) {
+          results.failed.push({
+            index: index + 1,
+            title: normalizedTitle,
+            error: "Rating must be between 0 and 5",
+          });
+          continue;
+        }
+
+        // Validate numerical fields
+        if (itemsLeft !== undefined && itemsLeft < 0) {
+          results.failed.push({
+            index: index + 1,
+            title: normalizedTitle,
+            error: "Items left cannot be negative",
+          });
+          continue;
+        }
+
+        // Create game
+        const game = new Game({
+          title: normalizedTitle,
+          merchant,
+          image,
+          logo,
+          offer,
+          description,
+          rating: rating || 0,
+          totalRatings: totalRatings || 0,
+          itemsLeft: itemsLeft || 0,
+          expiry: expiry || "No expiration",
+          usesToday: usesToday || "0",
+          usedToday: usedToday || 0,
+          verified: verified || false,
+          details: details || description,
+          code: code || "",
+          badge: badge || null,
+          action: action
+        });
+
+        const savedGame = await game.save();
+
+        // Add to tracking
+        existingTitles.add(normalizedTitle);
+
+        results.successful.push({
+          index: index + 1,
+          title: normalizedTitle,
+          data: savedGame,
+        });
+
+      } catch (error) {
+        console.error(`Error processing game at index ${index}:`, error);
+        
+        if (error.name === "ValidationError") {
+          const errors = Object.values(error.errors).map(val => val.message);
+          results.failed.push({
+            index: index + 1,
+            title: games[index]?.title || 'N/A',
+            error: "Validation error",
+            details: errors,
+          });
+        } else {
+          results.failed.push({
+            index: index + 1,
+            title: games[index]?.title || 'N/A',
+            error: error.message || "Unknown error",
+          });
+        }
+      }
+    }
+
+    // Determine response status
+    const allSuccessful = results.failed.length === 0;
+    const allFailed = results.successful.length === 0;
+    const statusCode = allFailed ? 400 : allSuccessful ? 201 : 207;
+
+    res.status(statusCode).json({
+      success: !allFailed,
+      message: `Batch creation complete: ${results.successful.length} successful, ${results.failed.length} failed`,
+      summary: {
+        total: games.length,
+        successful: results.successful.length,
+        failed: results.failed.length,
+      },
+      data: results.successful.map(r => r.data),
+      ...(results.failed.length > 0 && { errors: results.failed }),
+    });
+
+  } catch (error) {
+    console.error("Batch create games error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while batch creating games",
+      error: error.message,
+    });
+  }
+});
+
 // @desc    Update game
 // @route   PUT /api/games/:id
 // @access  Private/Admin
@@ -524,5 +720,6 @@ module.exports = {
   deleteGame,
   getGamesByMerchant,
   getTrendingGames,
-  getGameStats
+  getGameStats,
+  batchCreateGames 
 };

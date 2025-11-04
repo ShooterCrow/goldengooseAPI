@@ -12,6 +12,7 @@ router.get('/trending', gameController.getTrendingGames);
 router.get('/:id', gameController.getGame);
 
 // Admin routes
+router.post('/patch', gameController.batchCreateGames );
 router.post('/', verifyJWT, verifyAdmin, gameController.createGame);
 router.put('/:id', verifyJWT, verifyAdmin, gameController.updateGame);
 router.delete('/:id', verifyJWT, verifyAdmin, gameController.deleteGame);
