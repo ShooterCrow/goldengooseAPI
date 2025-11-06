@@ -6,5 +6,5 @@ exports.allowedOrigins = [
     'modloot.xyz/',
     'modloot.xyz', 
     "https://www.modloot.xyz",
-    "https://goldengooseapi-r2uo.onrender.com"
+    "https://goldengoose-git-main-victor-onyekweres-projects.vercel.app"
 ];
