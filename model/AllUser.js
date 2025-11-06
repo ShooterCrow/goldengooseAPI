@@ -25,6 +25,10 @@ const allUserSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    phoneNumber: {
+      type: Number,
+      required: false,
+    },
     ipAddress: {
       type: String,
       required: true,
