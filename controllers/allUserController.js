@@ -10,7 +10,7 @@ const { sanitizeInput } = require("../utils/sanitizeInput");
 const recordInteraction = asyncHandler(async (req, res) => {
   try {
     const {
-      type,
+      type = "other",
       offerTitle,
       actionLink = "default",
       email,
@@ -64,7 +64,7 @@ const recordInteraction = asyncHandler(async (req, res) => {
     }
 
     // Validate type enum
-    const validTypes = ["app_download", "gift_card", "coupon", "game_redeem", "other"];
+    const validTypes = ["app_download", "gift_card", "coupon", "game_redeem", "page_view", "other"];
     if (!validTypes.includes(type)) {
       return res.status(422).json({
         success: false,

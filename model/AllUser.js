@@ -12,6 +12,7 @@ const allUserSchema = new mongoose.Schema(
         "coupon",
         "game_redeem",
         "coupon",
+        "page_view",
         "other",
       ],
     },
