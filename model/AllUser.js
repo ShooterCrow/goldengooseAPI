@@ -84,7 +84,7 @@ const allUserSchema = new mongoose.Schema(
     // Status tracking
     status: {
       type: String,
-      enum: ["initiated", "completed", "failed", "cancelled"],
+      enum: ["initiated", "completed", "failed", "cancelled", "visited"],
       default: "initiated",
     },
     errorMessage: {
