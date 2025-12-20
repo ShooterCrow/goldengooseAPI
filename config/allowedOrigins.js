@@ -1,5 +1,5 @@
 exports.allowedOrigins = [
-    ...(process.env.NODE_ENV !== "production" ? ['http://localhost:5174', 'http://localhost:5173'] : []),
+    ...(process.env.NODE_ENV !== "production" ? ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:5175'] : []),
     'https://modloot.xyz/',
     'https://modloot.xyz',
     'https://www.modloot.xyz', 
