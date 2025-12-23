@@ -179,27 +179,27 @@ const createOfferCompletion = asyncHandler(async (req, res) => {
       isEmailSent: false,
     });
 
-    // try {
-    //   const emailTemplate = emailTemplates.taskCompleted({
-    //     offer,
-    //     title: title || "Task Completed",
-    //     code: code || "N/A",
-    //   });
+    try {
+      const emailTemplate = emailTemplates.taskCompleted({
+        offer,
+        title: title || "Task Completed",
+        code: code || "N/A",
+      });
 
-    //   await sendEmail({
-    //     to: email,
-    //     subject: emailTemplate.subject,
-    //     html: emailTemplate.html,
-    //     templateType: "taskReview",
-    //   });
+      await sendEmail({
+        to: email,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        templateType: "taskReview",
+      });
 
-    //   console.log(`Task review email sent to: ${email}`);
-    // } catch (emailError) {
-    //   console.error(
-    //     `Failed to send task review email to ${email}:`,
-    //     emailError.message
-    //   );
-    // }
+      console.log(`Task review email sent to: ${email}`);
+    } catch (emailError) {
+      console.error(
+        `Failed to send task review email to ${email}:`,
+        emailError.message
+      );
+    }
 
     res.status(201).json({
       success: true,
