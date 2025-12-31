@@ -179,27 +179,27 @@ const createOfferCompletion = asyncHandler(async (req, res) => {
       isEmailSent: false,
     });
 
-    try {
-      const emailTemplate = emailTemplates.taskCompleted({
-        offer,
-        title: title || "Task Completed",
-        code: code || "N/A",
-      });
+    // try {
+    //   const emailTemplate = emailTemplates.taskCompleted({
+    //     offer,
+    //     title: title || "Task Completed",
+    //     code: code || "N/A",
+    //   });
 
-      await sendEmail({
-        to: email,
-        subject: emailTemplate.subject,
-        html: emailTemplate.html,
-        templateType: "taskReview",
-      });
+    //   await sendEmail({
+    //     to: email,
+    //     subject: emailTemplate.subject,
+    //     html: emailTemplate.html,
+    //     templateType: "taskReview",
+    //   });
 
-      console.log(`Task review email sent to: ${email}`);
-    } catch (emailError) {
-      console.error(
-        `Failed to send task review email to ${email}:`,
-        emailError.message
-      );
-    }
+    //   console.log(`Task review email sent to: ${email}`);
+    // } catch (emailError) {
+    //   console.error(
+    //     `Failed to send task review email to ${email}:`,
+    //     emailError.message
+    //   );
+    // }
 
     res.status(201).json({
       success: true,
@@ -318,6 +318,23 @@ const deleteOfferCompletion = asyncHandler(async (req, res) => {
   });
 });
 
+const deleteAllOfferCompletions = asyncHandler(async (req, res) => {
+  const result = await OfferCompletion.deleteMany({});
+
+  if (result.deletedCount === 0) {
+    res.status(404);
+    throw new Error("No offer completions found to delete");
+  }
+
+  res.json({
+    success: true,
+    message: `${result.deletedCount} offer completion(s) deleted successfully`,
+    data: { 
+      deletedCount: result.deletedCount 
+    },
+  });
+});
+
 module.exports = {
   universalPostback,
   createOfferCompletion,
@@ -325,4 +342,5 @@ module.exports = {
   getOfferCompletionById,
   updateOfferCompletion,
   deleteOfferCompletion,
+  deleteAllOfferCompletions
 };
